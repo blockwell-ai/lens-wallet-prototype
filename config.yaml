@@ -1,0 +1,37 @@
+############### General
+
+log_requests: true
+
+auth_strategy: local
+
+session_key: REPLACE_SESSION_KEY
+
+passport:
+  successRedirect: /app
+  failureRedirect: /auth/login
+
+template_dirs:
+  - node_modules/am-lens-wallet/views
+  - views
+
+sparkpost_key: REPLACE_SPARKPOST_KEY
+
+app_server: REPLACE_SERVER_HOST
+
+############### Token
+
+token_id: REPLACE_TOKEN_ID
+token_name: REPLACE_TOKEN_NAME
+token_symbol: REPLACE_TOKEN_SYMBOL
+token_decimals: REPLACE_TOKEN_DECIMALS
+
+############### API Miner
+
+# API Miner URL
+apiminer_url: REPLACE_APIMINER_URL
+
+# The main account access token for API Miner
+apiminer_token: REPLACE_APIMINER_AUTH_TOKEN
+
+# Identifying prefix for this app, to differentiate user IDs in API Miner
+app_prefix: REPLACE_APP_ID

@@ -1,0 +1,386 @@
+#!/usr/bin/env node
+global.Promise = require('bluebird');
+const conf = require('am-lens/config');
+const program = require('commander');
+const inquirer = require('inquirer');
+const fs = require('fs-extra');
+const axios = require('axios');
+const replaceInFile = require('replace-in-file');
+const crypto = require('crypto');
+const exec = Promise.promisify(require('child_process').exec);
+const { spawn } = require('child_process');
+const BigNumber = require('bignumber.js');
+const nodeSsh = require('node-ssh');
+const ssh = new nodeSsh();
+
+program
+    .version('0.0.1');
+
+program
+    .command('init')
+    .description('Initializes this codebase as a new Lens Wallet.')
+    .action(async () => {
+        let pkg = await fs.readFile('package.json');
+        if (!pkg.includes('REPLACE_APP_ID')) {
+            console.log('Codebase already initialized, exiting.');
+            process.exit();
+        }
+
+        let answers = await inquirer.prompt([
+            {
+                type: 'input',
+                name: 'appId',
+                message: 'Enter an app ID (eg. mywallet)',
+                validate: (val) => {
+                    if (val.match(/^[a-z][a-z0-9-]+$/)) {
+                        return true;
+                    }
+                    return 'App ID must consist of all lowercase letters and dashes'
+                }
+            }, {
+                type: 'input',
+                name: 'server',
+                message: "Enter the deployment server address (eg. mywallet.lenswallet.io). Just hit enter if you don't have one"
+            }, {
+                type: 'rawlist',
+                name: 'env',
+                message: 'Select the API Miner environment to use',
+                choices: ['debug.apiminer.com', 'spout.apiminer.com', 'test.apiminer.com']
+            }, {
+                type: 'password',
+                name: 'auth',
+                mask: '*',
+                message: 'Enter the API Miner auth token to use'
+            }, {
+                type: 'password',
+                name: 'sparkpost',
+                mask: '*',
+                message: "(Optional) Enter a SparkPost API key for sending invitation emails. Just hit enter if you don't have one"
+            }, {
+                type: 'confirm',
+                name: 'createContract',
+                message: 'Do you want to create a new token contract for this app?'
+            }
+        ]);
+
+        let appId = answers.appId;
+        let host = `https://${answers.env}/`;
+        let auth = answers.auth;
+        let sparkpost = answers.sparkpost || 'replace_me';
+        let server = answers.server || 'none';
+        let tokenId;
+        let tokenName;
+        let tokenSymbol;
+        let tokenDecimals;
+
+        /**
+         * @type {AxiosInstance}
+         */
+        const client = axios.create({
+            baseURL: host,
+            maxContentLength: 1000000,
+            headers: {
+                'Authorization': `Bearer ${auth}`,
+                'User-Agent': `lens-wallet-prototype`
+            }
+        });
+
+        if (answers.createContract) {
+            let network;
+            switch (answers.env) {
+                case 'debug.apiminer.com':
+                    network = 'pictor';
+                    break;
+                case 'spout.apiminer.com':
+                    network = 'spout';
+                    break;
+                case 'test.apiminer.com':
+                    network = 'libra';
+                    break;
+            }
+
+            answers = await inquirer.prompt([
+                {
+                    type: 'input',
+                    name: 'tokenName',
+                    message: 'Enter the token name'
+                }, {
+                    type: 'input',
+                    name: 'tokenSymbol',
+                    message: 'Enter the token symbol'
+                }, {
+                    type: 'input',
+                    name: 'tokenDecimals',
+                    message: 'Enter the number of decimals for the token',
+                    validate: (val) => {
+                        if (parseInt(val) >= 0 && parseInt(val) < 76) {
+                            return true;
+                        }
+                        return 'Decimal count must be an integer no higher than 76'
+                    },
+                    filter: (val) => {
+                        return parseInt(val);
+                    }
+                }, {
+                    type: 'input',
+                    name: 'tokenSupply',
+                    message: 'Enter total token supply, in whole units. Decimals will be added automatically',
+                    validate: val => {
+                        let num = new BigNumber(val);
+                        if (!num.isNaN() && num.isGreaterThan(0)) {
+                            return true;
+                        }
+                        return 'Enter a valid number'
+                    }
+                }
+            ]);
+
+            console.log('Submitting token contract...');
+
+            let res = await client.request({
+                url: `accounts`
+            });
+            let account;
+            for (let acc of res.data.data) {
+                if (acc.defaultAccount) {
+                    account = acc.address;
+                }
+            }
+
+            if (!account) {
+                console.log(`User must have a default account, aborting.`);
+                process.exit();
+            }
+
+            let supply = new BigNumber(answers.tokenSupply);
+            res = await client.request({
+                method: 'post',
+                url: `contracts`,
+                data: {
+                    name: answers.tokenName,
+                    network: network,
+                    type: 'erc20',
+                    parameters: {
+                        symbol: answers.tokenSymbol,
+                        decimals: answers.tokenDecimals,
+                        supply: (supply.multipliedBy(new BigNumber(`1e${answers.tokenDecimals}`))).toFixed(),
+                        holder: account
+                    }
+                }
+            });
+            tokenId = res.data.data.contractId;
+
+            console.log(`Submitted with ID ${tokenId}. Note that it may take a little time for the contract to deploy.`);
+
+            tokenName = answers.tokenName;
+            tokenSymbol = answers.tokenSymbol;
+            tokenDecimals = answers.tokenDecimals;
+        } else {
+            let answers = await inquirer.prompt([
+                {
+                    type: 'input',
+                    name: 'tokenId',
+                    message: 'Enter the ID of an existing token contract to use'
+                }
+            ]);
+            tokenId = answers.tokenId;
+            let res = await client.request({
+                url: `contracts/${tokenId}`
+            });
+
+            let tokenNetwork = res.data.data.network;
+            tokenName = res.data.data.name;
+            tokenSymbol = res.data.data.parameters.symbol;
+            tokenDecimals = res.data.data.parameters.decimals;
+
+            answers = await inquirer.prompt([{
+                type: 'confirm',
+                name: 'correct',
+                message: `Found ${tokenName} (${tokenSymbol}) with ${tokenDecimals} decimals on the ${tokenNetwork} network. Is this correct?`,
+                default: true
+            }]);
+
+            if (!answers.correct) {
+                console.log('Aborting...');
+                process.exit();
+            }
+        }
+
+        let sessionKey = crypto.randomBytes(32).toString('hex');
+
+        console.log('Updating app...');
+
+        await replaceInFile({
+            files: [
+                'config.yaml',
+                'package.json'
+            ],
+            from: [
+                /REPLACE_APP_ID/g,
+                /REPLACE_SESSION_KEY/g,
+                /REPLACE_TOKEN_ID/g,
+                /REPLACE_TOKEN_NAME/g,
+                /REPLACE_TOKEN_SYMBOL/g,
+                /REPLACE_TOKEN_DECIMALS/g,
+                /REPLACE_APIMINER_URL/g,
+                /REPLACE_APIMINER_AUTH_TOKEN/g,
+                /REPLACE_SPARKPOST_KEY/g,
+                /REPLACE_SERVER_HOST/g
+            ],
+            to: [
+                appId,
+                sessionKey,
+                tokenId,
+                tokenName,
+                tokenSymbol,
+                tokenDecimals,
+                host,
+                auth,
+                sparkpost,
+                server
+            ]
+        });
+
+        let res = await exec('npm install && npm run migrate');
+
+        if (res.error) {
+            console.log(res.stderr);
+            console.log(res.error);
+        } else {
+
+            // Sleep to make sure the contract has been deployed
+            await Promise.delay(5000);
+
+            let answers = await inquirer.prompt([{
+                type: 'input',
+                name: 'email',
+                message: 'Enter an email address for the first user'
+            }, {
+                type: 'password',
+                name: 'password',
+                message: 'Enter user password'
+            }, {
+                type: 'input',
+                name: 'amount',
+                message: 'Enter the number of tokens to give this user, in whole units. Decimals will be added automatically'
+            }]);
+
+            await exec(`./node_modules/.bin/lens user ${answers.email} -p "${answers.password}"`);
+            await exec(`./node_modules/.bin/lens send ${answers.email} ${answers.amount}`);
+
+            console.log('Done! You can now deploy the app using "./cli deploy".');
+        }
+    });
+
+
+program
+    .command('deploy')
+    .description('Initializes this codebase as a new Lens Wallet.')
+    .action(async () => {
+        const host = conf.get('app_server');
+
+        let answers = await inquirer.prompt([{
+            type: 'confirm',
+            name: 'correct',
+            message: `This command will deploy a new live version to ${host}. Proceed?`,
+            default: true
+        }]);
+
+        if (!answers.correct) {
+            console.log('Aborting...');
+            process.exit();
+        }
+
+        answers = await inquirer.prompt([{
+            type: 'password',
+            name: 'pass',
+            mask: '*',
+            message: 'Enter SSH password'
+        }]);
+
+        try {
+            await ssh.connect({
+                host: host,
+                username: 'app',
+                password: answers.pass
+            });
+        } catch (e) {
+            console.log('Failed to connect through SSH, possibly bad connection or wrong password. Error was:');
+            console.log(e.message);
+            return;
+        }
+
+        try {
+            console.log('Building assets...');
+            let res = await exec('npm run build');
+
+            // Check if the database is already there
+            res = await ssh.execCommand('ls /home/app/app/db.sqlite3');
+
+            if (res.stderr.includes('No such file or directory')) {
+                try {
+                    await ssh.putFile('db.sqlite3', '/home/app/app/db.sqlite3');
+                } catch (e) {
+                    console.log(e.message);
+                    console.log("Failed to upload db.sqlite3 database, did you not run init yet?");
+                    return;
+                }
+
+                console.log("Database uploaded. Note that this won't happen in the future when a database already exists.");
+            }
+
+            const excludes = [
+                /^node_modules/,
+                /^\.git$/,
+                /^\.idea/,
+                /db\.sqlite3/
+            ];
+
+            console.log('Uploading files...');
+
+            let failed = [];
+            let succeeded = [];
+            await ssh.putDirectory('.', '/home/app/app', {
+                recursive: true,
+                concurrency: 1,
+                validate: path => {
+                    for (let ex of excludes) {
+                        if (ex.test(path)) {
+                            return false
+                        }
+                    }
+                    return true;
+                },
+                tick: (localPath, remotePath, error) => {
+                    if (error) {
+                        console.log(error);
+                        failed.push(localPath)
+                    } else {
+                        succeeded.push(localPath)
+                    }
+                }
+            });
+
+            if (failed.length > 0) {
+                console.log('Some files failed to upload:', failed.join(', '));
+                console.log('Aborting, but you can try to deploy again.');
+            } else {
+                console.log('Upload complete. Installing packages...');
+                res = await ssh.execCommand('npm install --production', {cwd: '/home/app/app'});
+
+                console.log('Restarting app...');
+
+                res = await ssh.execCommand('pm2 restart all');
+
+                console.log('All done. It may take a few seconds for the app to reload, so you may see a 502 error briefly.');
+            }
+        } finally {
+            ssh.dispose();
+        }
+    });
+
+
+if (!process.argv.slice(2).length) {
+    program.help();
+}
+program.parse(process.argv);

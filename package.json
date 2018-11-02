@@ -1,0 +1,27 @@
+{
+    "name": "REPLACE_APP_ID-lens",
+    "version": "1.0.0",
+    "private": true,
+    "main": "index.js",
+    "scripts": {
+        "start": "node $NODE_DEBUG_OPTION .",
+        "dev": "nodemon -e js,hbs --ignore public/ --ignore public-src/ .",
+        "watch-sass": "node-sass --source-comments --include-path node_modules/am-lens-wallet/frontend/css --include-path public-src/css -w public-src/css/main.scss public/dist/bundle.css",
+        "watch-webpack": "webpack --mode=development --watch --config webpack.dev.js",
+        "watch": "concurrently \"npm:watch-sass\" \"npm:watch-webpack\"",
+        "build": "webpack --config webpack.prod.js && node-sass --include-path node_modules/am-lens-wallet/frontend/css --include-path public-src/css --output-style compressed public-src/css/main.scss public/dist/bundle.css",
+        "migrate": "knex-migrate up --migrations node_modules/am-lens/migrations"
+    },
+    "dependencies": {
+        "am-lens-wallet": "https://github.com/blockwell-ai/am-lens-wallet.git#1.0.13"
+    },
+    "devDependencies": {
+        "axios": "0.18.0",
+        "commander": "2.19.0",
+        "inquirer": "6.2.0",
+        "fs-extra": "7.0.0",
+        "replace-in-file": "3.4.2",
+        "bignumber.js": "7.2.1",
+        "node-ssh": "5.1.2"
+    }
+}

@@ -1,0 +1,152 @@
+@import "variables";
+
+body {
+  background: #020A1E;
+  font-family: 'Roboto', 'sans-serif';
+  color: #474747;
+
+  @media only screen and (max-width: 425px) {
+    font-size: 13px;
+  }
+}
+
+h3 {
+  color: #14114b;
+}
+
+h4 {
+  color: #666;
+}
+
+a {
+  color: $primary-color;
+}
+
+
+.main-header {
+  background: #020A1E;
+  color: #fff;
+
+  .header-content {
+    a {
+      color: #fff;
+    }
+
+    .header-right {
+      .dropdown-content a {
+        color: $primary-color;
+      }
+    }
+  }
+}
+
+.main-body {
+  background: #eef0f2;
+}
+
+.card .card-title {
+  border-bottom: 2px solid #dddddd;
+
+  .btn, .btn-small {
+    border: 1px solid $primary-color;
+    color: $primary-color;
+  }
+}
+
+.back {
+  a {
+    color: #949494;
+  }
+}
+
+.info-table {
+  .info-row {
+    border-top: 1px solid #ddd;
+  }
+}
+
+.transactions-list {
+  table {
+    .amount {
+      span {
+        color: #999;
+      }
+    }
+  }
+}
+
+.transaction {
+  .transaction-hash-title {
+    border-bottom: 1px solid #ddd;
+  }
+}
+
+.transfers-list, .address-transfers {
+  table {
+    .amount {
+      .value span {
+        color: #999;
+      }
+    }
+    @media only screen and (max-width: 620px) {
+      tr {
+        border-top: 1px solid #ddd;
+      }
+      td {
+        .label {
+          color: #474747;
+        }
+      }
+    }
+  }
+}
+
+td.default {
+  i {
+    color: $primary-color;
+  }
+}
+
+td.balance span {
+  color: #999;
+}
+
+.current-transfers .transfer {
+  color: #9b9b9b;
+
+  strong {
+    color: #474747;
+  }
+
+  .status {
+    &.completed {
+      color: $primary-color;
+    }
+    &.error {
+      color: #8b1014;
+    }
+  }
+
+  .transfer-symbol {
+    color: #999;
+  }
+}
+
+.test-accounts {
+  h3 {
+    color: #999;
+  }
+  color: #999;
+}
+
+.to-account-selector {
+  > span {
+    color: #9b9b9b;
+    border: 1px solid #eeeeee;
+  }
+
+  .active {
+    color: $primary-color;
+    border-bottom: 2px solid $primary-color;
+  }
+}
