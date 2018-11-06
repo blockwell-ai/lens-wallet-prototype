@@ -10,30 +10,18 @@ You'll need Git installed on your computer. See the Git page for instructions:
 
 https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 
-### GitHub Authentication
-
-You must be connected to GitHub using SSH. 
-
-If you're not already authenticated, see GitHub help:
-
-https://help.github.com/articles/connecting-to-github-with-ssh/
-
-More specifically, you'll need to:
-
-- Generate a new SSH Key
-- Add it to your computers ssh-agent
-- Add the key to your GitHub account
-
 ### Node.js
 
 Node.js 8+ is needed, recommended Node.js 10. See:
 
 https://nodejs.org/en/download/package-manager/
 
-### API Miner account and token contract
+### API Miner account
 
-You'll need an auth token for an API Miner account, as well as the contract ID
-for a deployed token contract.
+You'll need an auth token for an API Miner account.
+
+You can receive one for free as part of our 10-in-10 promotion:
+https://10in10.blockwell.ai/
 
 ## Setup
 
@@ -45,7 +33,7 @@ directory, unless otherwise noted.
 If cloning, use:
 
 ```
-git clone git@github.com:novoa-media/lens-wallet-prototype.git
+git clone https://github.com/blockwell-ai/lens-wallet-prototype.git
 ```
 
 This will clone the codebase to `lens-wallet-prototype` under your current
@@ -61,9 +49,6 @@ Run:
 npm install
 ```
 
-If you get permission errors, make sure GitHub Authentication is setup
-correctly.
-
 ### 3. Run the init command
 
 Run:
@@ -76,20 +61,25 @@ The command will ask you a series of questions to configure the app:
 
 1. App ID - this should be all lowercase letters and dashes, no spaces. It's used
 to identify the app. For example: `mywallet`.
-2. Select API Miner environment. This should match the environment your desired
-token contract is on.
-3. API Miner auth token - the API key/token for the user account on API Miner.
+2. Deployment server - if you have access to one of our `lenswallet.io` servers, enter
+that hostname here. This is optional.
+3. Select API Miner environment. This needs to match your account. For example, the
+10-in-10 promotional accounts are on the `spout` environment.
+4. API Miner auth token - the API key/token for the user account on API Miner.
+5. SparkPost API Key - this will be used to send invitation emails to new wallet
+accounts. Optional.
 
-Lastly, you'll be asked to either create a new token contract, or enter the ID
+You'll then be asked to either create a new token contract, or enter the ID
 of an existing one.
+
+Lastly, you'll create the first user account for the app.
 
 The command will configure the app and initialize the database, after which
 you're good to go.
 
-### 4. Create user
+### 4. (Optional) Create more users
 
-In order to actually log in to the app, you'll need to create a user
-account. To create an account, run:
+To create more user accounts, run:
 
 ```
 npx lens user <email>
@@ -98,18 +88,19 @@ npx lens user <email>
 Replacing `<email>` with an account email address. It will ask you for a
 password.
 
-### 5. Send tokens to user
+### 5. (Optional) Send tokens to users
 
-Finally, to get tokens for the new account, use the lens command again:
+If you didn't send all tokens to the first account, you can send more tokens
+using:
 
 ```
 npx lens send <email> <amount>
 ```
 
-This will send tokens from the default account of the app user to the address
+This will send tokens from the default account of the app to the address
 associated with the given email.
 
-### 6. Version control (optional)
+### 6. (Optional) Version control
 
 After setup, it's recommended to clear the current Git config (if it exists)
 by removing the .git folder, and initializing Git again for this new wallet.
@@ -122,11 +113,10 @@ https://try.github.io/
 ## Setup tl;dr
 
 ```
-git clone git@github.com:novoa-media/lens-wallet-prototype.git
+git clone https://github.com/blockwell-ai/lens-wallet-prototype.git
 cd lens-wallet-prototype
 npm install
 ./cli init
-npx lens user <email>
 ```
 
 ## Development
