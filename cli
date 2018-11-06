@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const exec = Promise.promisify(require('child_process').exec);
 const { spawn } = require('child_process');
 const BigNumber = require('bignumber.js');
+const moment = require('moment');
 const nodeSsh = require('node-ssh');
 const ssh = new nodeSsh();
 
@@ -69,6 +70,7 @@ program
         let sparkpost = answers.sparkpost || 'replace_me';
         let server = answers.server || 'none';
         let tokenId;
+        let tokenType;
         let tokenName;
         let tokenSymbol;
         let tokenDecimals;
@@ -100,6 +102,12 @@ program
             }
 
             answers = await inquirer.prompt([
+                {
+                    type: 'rawlist',
+                    name: 'type',
+                    message: 'Select token contract type',
+                    choices: ['erc20', 'erc20_security']
+                },
                 {
                     type: 'input',
                     name: 'tokenName',
@@ -134,6 +142,36 @@ program
                     }
                 }
             ]);
+
+            let lockTime;
+            if (answers.type === 'erc20_security') {
+                lockTime = await inquirer.prompt([
+                    {
+                        type: 'input',
+                        name: 'lock',
+                        message: 'Enter a lock time as a number followed by a space and the time unit. Examples: "2 days", "4 months"',
+                        default: '5 minutes',
+                        validate: val => {
+                            let parts = val.split(' ');
+                            const valid = [
+                                'years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds', 'milliseconds',
+                                'y', 'M', 'w', 'd', 'h', 'm', 's', 'ms'
+                            ];
+
+                            if (parts.length === 2 && parseInt(parts[0]) > 0 && valid.includes(parts[1])) {
+                                return true;
+                            } else {
+                                return `Invalid value. Must be a number above zero followed by a space and one of: ${valid.join(', ')}`;
+                            }
+                        },
+                        filter: val => {
+                            let parts = val.split(' ');
+                            return moment.duration(parts[0], parts[1]);
+                        }
+                    }
+                ]);
+                lockTime = lockTime.lock;
+            }
 
             console.log('Submitting token contract...');
 
@@ -170,11 +208,43 @@ program
             });
             tokenId = res.data.data.contractId;
 
-            console.log(`Submitted with ID ${tokenId}. Note that it may take a little time for the contract to deploy.`);
-
             tokenName = answers.tokenName;
             tokenSymbol = answers.tokenSymbol;
             tokenDecimals = answers.tokenDecimals;
+            tokenType = answers.type;
+
+            console.log(`Submitted with ID ${tokenId}. Waiting for contract to finish deploying...`);
+
+            let i = 0;
+            await new Promise(function(resolve, reject) {
+                let timer = setInterval(async () => {
+                    i++;
+                    let res = await client.request({
+                        url: `contracts/${tokenId}`
+                    });
+
+                    if (res.data.data.address) {
+                        clearInterval(timer);
+                        resolve();
+                    }
+                    if (i > 10) {
+                        clearInterval(timer);
+                        reject(new Error("Contract deployment timed out, something went wrong. Contact us if this issue persists."));
+                    }
+                }, 5000);
+            });
+
+            console.log(`Token contract deployed!`);
+
+            if (lockTime) {
+                let res = await client.request({
+                    method: 'post',
+                    url: `contracts/${tokenId}/send/setLockTime`,
+                    data: {
+                        arg: [lockTime.asSeconds()]
+                    }
+                });
+            }
         } else {
             let answers = await inquirer.prompt([
                 {
@@ -192,6 +262,7 @@ program
             tokenName = res.data.data.name;
             tokenSymbol = res.data.data.parameters.symbol;
             tokenDecimals = res.data.data.parameters.decimals;
+            tokenType = res.data.data.type;
 
             answers = await inquirer.prompt([{
                 type: 'confirm',
@@ -219,6 +290,7 @@ program
                 /REPLACE_APP_ID/g,
                 /REPLACE_SESSION_KEY/g,
                 /REPLACE_TOKEN_ID/g,
+                /REPLACE_TOKEN_TYPE/g,
                 /REPLACE_TOKEN_NAME/g,
                 /REPLACE_TOKEN_SYMBOL/g,
                 /REPLACE_TOKEN_DECIMALS/g,
@@ -231,6 +303,7 @@ program
                 appId,
                 sessionKey,
                 tokenId,
+                tokenType,
                 tokenName,
                 tokenSymbol,
                 tokenDecimals,

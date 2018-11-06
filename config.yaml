@@ -21,6 +21,7 @@ app_server: REPLACE_SERVER_HOST
 ############### Token
 
 token_id: REPLACE_TOKEN_ID
+token_type: REPLACE_TOKEN_TYPE
 token_name: REPLACE_TOKEN_NAME
 token_symbol: REPLACE_TOKEN_SYMBOL
 token_decimals: REPLACE_TOKEN_DECIMALS

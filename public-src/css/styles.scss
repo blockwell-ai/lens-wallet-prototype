@@ -150,3 +150,13 @@ td.balance span {
     border-bottom: 2px solid $primary-color;
   }
 }
+
+.balances {
+  .label {
+    color: #999;
+  }
+
+  .show-locks {
+    color: desaturate(lighten($primary-color, 10%), 40%)
+  }
+}
