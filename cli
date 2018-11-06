@@ -163,14 +163,11 @@ program
                             } else {
                                 return `Invalid value. Must be a number above zero followed by a space and one of: ${valid.join(', ')}`;
                             }
-                        },
-                        filter: val => {
-                            let parts = val.split(' ');
-                            return moment.duration(parts[0], parts[1]);
                         }
                     }
                 ]);
-                lockTime = lockTime.lock;
+                let parts = lockTime.lock.split(' ');
+                lockTime = moment.duration(parseInt(parts[0]), parts[1]);
             }
 
             console.log('Submitting token contract...');
@@ -197,7 +194,7 @@ program
                 data: {
                     name: answers.tokenName,
                     network: network,
-                    type: 'erc20',
+                    type: answers.type,
                     parameters: {
                         symbol: answers.tokenSymbol,
                         decimals: answers.tokenDecimals,
