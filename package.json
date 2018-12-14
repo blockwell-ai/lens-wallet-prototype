@@ -13,7 +13,7 @@
         "migrate": "knex-migrate up --migrations node_modules/am-lens/migrations"
     },
     "dependencies": {
-        "am-lens-wallet": "https://github.com/blockwell-ai/am-lens-wallet.git#1.0.15"
+        "am-lens-wallet": "https://github.com/blockwell-ai/am-lens-wallet.git#1.0.16"
     },
     "devDependencies": {
         "axios": "0.18.0",
